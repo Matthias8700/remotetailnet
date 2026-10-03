@@ -1,0 +1,78 @@
+name: Ubuntu + Tailscale + Download Script
+
+on:
+  workflow_dispatch:
+
+jobs:
+  secure-runner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+
+    steps:
+      - name: Configure Core Firewall & Network Settings
+        run: |
+          # Allow SSH / Remote connections via UFW (Uncomplicated Firewall)
+          sudo ufw allow 22/tcp
+          sudo ufw --force enable
+
+      - name: Create Linux User with Sudo Privileges
+        run: |
+          USERNAME="rdpuser"
+          PASSWORD="MR.English2008"
+
+          # Create user if it doesn't exist
+          if ! id "$USERNAME" &>/dev/null; then
+              sudo useradd -m -s /bin/bash "$USERNAME"
+              echo "$USERNAME:$PASSWORD" | sudo chpasswd
+              sudo usermod -aG sudo "$USERNAME"
+          fi
+
+          echo "USER_CREDS=User: $USERNAME | Password: $PASSWORD" >> $GITHUB_ENV
+
+      - name: Install Tailscale
+        run: |
+          # Use official Tailscale install script for Linux
+          curl -fsSL https://tailscale.com/install.sh | sh
+
+      - name: Establish Tailscale Connection
+        run: |
+          # Bring up Tailscale with authkey and custom hostname
+          sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTHKEY }} --hostname=gh-runner-$GITHUB_RUN_ID
+
+          # Retrieve assigned Tailscale IPv4 address
+          TS_IP=$(tailscale ip -4)
+
+          if [ -z "$TS_IP" ]; then
+              echo "Tailscale IP not assigned. Exiting."
+              exit 1
+          fi
+
+          echo "TAILSCALE_IP=$TS_IP" >> $GITHUB_ENV
+
+      - name: Verify Connectivity
+        run: |
+          echo "Tailscale IP: $TAILSCALE_IP"
+          
+          # Verify Tailscale status
+          tailscale status
+
+      - name: Maintain Connection + Run Script
+        run: |
+          echo -e "\n=== ACCESS DETAILS ==="
+          echo "Address: $TAILSCALE_IP"
+          echo "Username: rdpuser"
+          echo "Password: MR.English2008"
+          echo -e "==================\n"
+
+          DOWNLOAD_URL="https://gitlab.com/MR.English2008/pcme_rdp/-/raw/main/Downloads.bat"
+          SCRIPT_PATH="/home/rdpuser/Downloads.sh"
+
+          # Download and execute startup task
+          curl -sSL "$DOWNLOAD_URL" -o "$SCRIPT_PATH" || true
+          chmod +x "$SCRIPT_PATH" 2>/dev/null || true
+
+          # Keep the runner active
+          while true; do
+              echo "[$(date)] Runner Active - Use Ctrl+C or cancel workflow to terminate"
+              sleep 300
+          done
