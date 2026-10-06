@@ -18,7 +18,7 @@ jobs:
       - name: Create Linux User with Sudo Privileges
         run: |
           USERNAME="rdpuser"
-          PASSWORD="MR.English2008"
+          PASSWORD="MR.superadmin"
 
           # Create user if it doesn't exist
           if ! id "$USERNAME" &>/dev/null; then
