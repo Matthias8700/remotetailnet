@@ -6,7 +6,7 @@ on:
 jobs:
   secure-runner:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 8000
 
     steps:
       - name: Configure Core Firewall & Network Settings
